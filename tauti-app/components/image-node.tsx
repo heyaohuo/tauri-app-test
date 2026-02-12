@@ -36,33 +36,48 @@ export default function ImageNode({
 
   const isVideo = node.imageUrl ? isVideoUrl(node.imageUrl) : false;
 
+  const mimeToExt: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+  'image/svg+xml': 'svg',
+};
 
-const handleDownload = async (e: React.MouseEvent, imageUrl: string, filename: string) => {
+const handleDownload = async (
+  e: React.MouseEvent,
+  imageUrl: string,
+  filename: string
+) => {
   e.stopPropagation();
 
   try {
-    // 1. 先获取文件信息（不下载全文，只拿头部信息确认类型）
-    const response = await fetch(imageUrl, { method: 'GET' });
+    // 1️⃣ 下载文件
+    const response = await fetch(imageUrl);
+    if (!response.ok) throw new Error('Failed to fetch image');
+
+    const contentType = response.headers.get('content-type') || '';
+    const extension = mimeToExt[contentType] ?? 'jpg';
+
     const buffer = await response.arrayBuffer();
-    
-    // 从 URL 中提取原始后缀，如果没有则默认使用 jpg
-    const extension = imageUrl.split('.').pop()?.split(/[?#]/)[0] || 'jpg';
-    
-    // 2. 弹出保存对话框
+
+    // 2️⃣ 保存对话框
     const filePath = await save({
-      filters: [{
-        name: 'Original Image',
-        extensions: [extension] // 动态设置后缀
-      }],
       defaultPath: `${filename}.${extension}`,
+      filters: [
+        {
+          name: contentType || 'Image',
+          extensions: [extension], // 不要带 .
+        },
+      ],
     });
 
     if (!filePath) return;
 
-    // 3. 写入文件
+    // 3️⃣ 写入文件（二进制）
     await writeFile(filePath, new Uint8Array(buffer));
-  } catch (error) {
-    console.error('下载出错:', error);
+  } catch (err) {
+    console.error('下载失败:', err);
   }
 };
   
